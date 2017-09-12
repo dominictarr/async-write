@@ -6,7 +6,7 @@ module.exports = function (write, reduce, isFull, isEmpty, delay) {
   var buffer = null, _cb, writing = false, timer
   var flush_cb
 
-  function flush (cb) {
+  function flush () {
     clearTimeout(timer)
     timer = null
     writing = true
@@ -14,14 +14,9 @@ module.exports = function (write, reduce, isFull, isEmpty, delay) {
     buffer = null
     write(_buffer, function (err) {
       writing = false
-      if(cb) cb(err)
-      if(_cb) { cb = _cb; _cb = null; cb() }
-      if(isFull(buffer) || (!isEmpty(buffer) && flush_cb)) flush()
-      else if(flush_cb) {
-        var _flush_cb = flush_cb
-        flush_cb = null
-        _flush_cb()
-      }
+      if(_cb) { var cb = _cb; _cb = null; cb() }
+      if(isFull(buffer)) flush()
+      else if(queue.onDrain) queue.onDrain()
     })
   }
 
@@ -29,26 +24,21 @@ module.exports = function (write, reduce, isFull, isEmpty, delay) {
     try {
       buffer = reduce(buffer, data)
     } catch (err) {
-      return cb(err)
+      cb(err); return
     }
     if(isFull(buffer)) {
       if(!writing) flush()
-      else return _cb = cb
+      else {_cb = cb; return }
     }
     else if(!timer)
       timer = setTimeout(flush, delay || 100)
     cb()
   }
 
-  queue.flush = function (cb) {
-    if(writing) {
-      flush_cb = cb
-      return
-     //   throw new Error('cannot flush: already writing')
-    }
-    if(buffer == null) return cb && cb()
-    flush(cb)
-  }
+//  queue.flush = function () {
+//    if(writing) return
+//    flush()
+//  }
 
   return queue
 }
