@@ -9,7 +9,7 @@ function isEmpty (a) { return !(a && a.length) }
 
 tape('simple', function (t) {
   var cb, write_called = 0, cb_called = 0
-  var data = []
+  var data = [], drain = 0
 
   function write (_data, _cb) {
     data = data.concat(_data)
@@ -24,6 +24,8 @@ tape('simple', function (t) {
   var w = AsyncWrite(write, function (ary, item) {
     return (ary || []).concat(item)
   }, isFull, isEmpty)
+
+  w.onDrain = function () { drain ++ }
 
   w(1, function (err, value) {
     cb_called ++
@@ -41,15 +43,17 @@ tape('simple', function (t) {
 
   t.equal(write_called, 1)
   t.equal(cb_called, 3)
+  t.equal(drain, 0)
 
   cb()
+  t.equal(drain, 1)
   t.deepEqual(data, [1,2,3])
   t.end()
 })
 
 tape('fill the buffer while writing', function (t) {
   var cb, write_called = 0, cb_called = 0
-  var data = []
+  var data = [], drain = 0
 
   function write (_data, _cb) {
     data = data.concat(_data)
@@ -64,6 +68,8 @@ tape('fill the buffer while writing', function (t) {
   var w = AsyncWrite(write, function (ary, item) {
     return (ary || []).concat(item)
   }, isFull, isEmpty)
+
+  w.onDrain = function () { drain ++ }
 
   w(1, function (err, value) {
     cb_called ++
@@ -108,63 +114,63 @@ tape('fill the buffer while writing', function (t) {
   t.end()
 })
 
-tape('flush manually', function (t) {
-
-  var cb, write_called = 0, cb_called = 0
-  var data = []
-
-  function write (_data, _cb) {
-    data = data.concat(_data)
-    write_called ++
-    if(cb) throw new Error('already writing')
-    cb = function () {
-      cb = null
-      _cb(null, data.length)
-    }
-  }
-
-  var w = AsyncWrite(write, function (ary, item) {
-    return (ary || []).concat(item)
-  }, isFull, isEmpty)
-
-  w(1, function (err, value) {
-    cb_called ++
-  })
-  w(2, function (err, value) {
-    cb_called ++
-  })
-
-  t.notOk(write_called)
-  t.equal(cb_called, 2)
-
-  w.flush()
-
-  t.equal(write_called, 1)
-
-  w(3, function (err, value) {
-    cb_called ++
-  })
-  w(4, function (err, value) {
-    cb_called ++
-  })
-
-  cb()
-
-  t.deepEqual(data, [1,2])
-
-  w.flush()
-  t.equal(write_called, 2)
-  cb()
-  //calls back immediately, but starts buffering again
-  t.deepEqual(data, [1,2,3,4])
-  t.equal(cb_called, 4)
-
-  //nothing happens if you flush while buffer is empty
-  w.flush()
-  t.equal(write_called, 2)
-
-  t.end()
-})
+//tape('flush manually', function (t) {
+//
+//  var cb, write_called = 0, cb_called = 0
+//  var data = []
+//
+//  function write (_data, _cb) {
+//    data = data.concat(_data)
+//    write_called ++
+//    if(cb) throw new Error('already writing')
+//    cb = function () {
+//      cb = null
+//      _cb(null, data.length)
+//    }
+//  }
+//
+//  var w = AsyncWrite(write, function (ary, item) {
+//    return (ary || []).concat(item)
+//  }, isFull, isEmpty)
+//
+//  w(1, function (err, value) {
+//    cb_called ++
+//  })
+//  w(2, function (err, value) {
+//    cb_called ++
+//  })
+//
+//  t.notOk(write_called)
+//  t.equal(cb_called, 2)
+//
+//  w.flush()
+//
+//  t.equal(write_called, 1)
+//
+//  w(3, function (err, value) {
+//    cb_called ++
+//  })
+//  w(4, function (err, value) {
+//    cb_called ++
+//  })
+//
+//  cb()
+//
+//  t.deepEqual(data, [1,2])
+//
+//  w.flush()
+//  t.equal(write_called, 2)
+//  cb()
+//  //calls back immediately, but starts buffering again
+//  t.deepEqual(data, [1,2,3,4])
+//  t.equal(cb_called, 4)
+//
+//  //nothing happens if you flush while buffer is empty
+//  w.flush()
+//  t.equal(write_called, 2)
+//
+//  t.end()
+//})
 
 
 
@@ -172,24 +178,29 @@ tape('flush manually', function (t) {
 tape('timeout', function (t) {
 
   var cb, write_called = 0, cb_called = 0
-  var data = []
+  var data = [], drain = 0
 
   function write (_data, _cb) {
     data = data.concat(_data)
     write_called ++
-    setTimeout(_cb, 200)
+    setTimeout(_cb, 100)
   }
 
   var w = AsyncWrite(write, function (ary, item) {
     return (ary || []).concat(item)
   }, isFull, isEmpty)
 
-  w(1, function () {})
+  w.onDrain = function () { drain ++ }
 
+  w(1, function () {})
+  t.equal(drain, 0)
   setTimeout(function() {
     t.deepEqual(data, [1])
+    t.equal(drain, 1)
     t.end()
   }, 300)
 
 })
+
+
 
