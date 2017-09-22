@@ -1,12 +1,12 @@
 //TODO: timeout
-
 'use strict'
+
 module.exports = function (write, reduce, isFull, isEmpty, delay) {
 
-  var buffer = null, _cb, writing = false, timer
-  var flush_cb
+  var buffer = null, _cb, writing = false, timer, timeout
 
   function flush () {
+    if(writing) return
     clearTimeout(timer)
     timer = null
     writing = true
@@ -15,14 +15,17 @@ module.exports = function (write, reduce, isFull, isEmpty, delay) {
     write(_buffer, function (err) {
       writing = false
       if(_cb) { var cb = _cb; _cb = null; cb() }
-      if(isFull(buffer)) flush()
-      else if(queue.onDrain) queue.onDrain()
+      //what if a write takes longer than the timeout
+      //and the buffer is partially full?
+      //hmm, would that cause an out of order write?
+      if(isFull(buffer) || !isEmpty(buffer) && timeout) flush()
+      else if(queue.onDrain && isEmpty(buffer)) queue.onDrain()
     })
   }
 
   function queue (data, cb) {
     try {
-      buffer = reduce(buffer, data)
+      queue.buffer = buffer = reduce(buffer, data)
     } catch (err) {
       cb(err); return
     }
@@ -31,14 +34,13 @@ module.exports = function (write, reduce, isFull, isEmpty, delay) {
       else {_cb = cb; return }
     }
     else if(!timer)
-      timer = setTimeout(flush, delay || 100)
+      timeout = false
+      timer = setTimeout(function () {
+        timeout = true
+        flush()
+      }, delay || 100)
     cb()
   }
-
-//  queue.flush = function () {
-//    if(writing) return
-//    flush()
-//  }
 
   return queue
 }
