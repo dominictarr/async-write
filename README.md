@@ -24,6 +24,10 @@ var write = AsyncWrite(
   function isFull (buffered) {
     return buffered.length > 1000
   },
+  //a function to test if the buffer is empty (nothing to write)
+  function isEmpty (buffered) {
+    return buffered.length == 0
+  }
   //a timeout, if nothing happens in this long, the buffer will
   //just be written anyway.
   200
