@@ -18,7 +18,8 @@ module.exports = function (write, reduce, isFull, isEmpty, delay) {
       //what if a write takes longer than the timeout
       //and the buffer is partially full?
       //hmm, would that cause an out of order write?
-      if(isFull(buffer) || !isEmpty(buffer) && timeout) flush()
+      if(isFull(buffer)) flush()
+      else if(!isEmpty(buffer) && timeout) flush()
       else if(queue.onDrain && isEmpty(buffer)) queue.onDrain()
     })
   }
@@ -33,12 +34,13 @@ module.exports = function (write, reduce, isFull, isEmpty, delay) {
       if(!writing) flush()
       else {_cb = cb; return }
     }
-    else if(!timer)
+    else if(!timer) {
       timeout = false
       timer = setTimeout(function () {
         timeout = true
         flush()
       }, delay || 100)
+    }
     cb()
   }
 
