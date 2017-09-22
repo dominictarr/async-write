@@ -254,19 +254,67 @@ tape('write is slower than timeout', function (t) {
     cb()
     t.end()
   }, 200)
-
-//  t.equal(write_called, 1)
-//  //this time it buffers until the write succeeds
-//  t.equal(cb_called, 5)
-//
-//  //first buffered write
-//  cb()
-//  t.equal(cb_called, 6)
-//  //which triggers another one to start
-//  t.equal(write_called, 2)
-//  cb()
-//  t.equal(cb_called, 6)
-//  t.deepEqual(data, [1,2,3, 4,5,6])
-//  t.end()
 })
+
+tape('write is faster than timeout', function (t) {
+  var cb, write_called = 0, cb_called = 0
+  var data = [], drain = 0
+
+  function write (_data, _cb) {
+    data = data.concat(_data)
+    write_called ++
+    if(cb) throw new Error('already writing')
+    cb = function () {
+      cb = null
+      _cb(null, data.length)
+    }
+  }
+
+  var w = AsyncWrite(write, function (ary, item) {
+    return (ary || []).concat(item)
+  }, isFull, isEmpty, 100)
+
+  w.onDrain = function () { drain ++ }
+
+  w(1, function (err, value) {
+    cb_called ++
+  })
+  w(2, function (err, value) {
+    cb_called ++
+  })
+  w(3, function (err, value) {
+    cb_called ++
+  })
+
+  //third write fills buffer, triggers write
+  t.equal(write_called, 1)
+  t.deepEqual(data, [1,2,3])
+
+  //calls back immediately, but starts buffering again
+  t.equal(cb_called, 3)
+
+  //an other write starts a timer
+  w(4, function (err, value) {
+    cb_called ++
+  })
+
+  //wait for timeout to trigger
+  cb()
+  //still waiting for the timeout, so write shouldn't be called yet.
+  t.equal(write_called, 1)
+
+  setTimeout(function () {
+    t.equal(write_called, 2)
+    t.deepEqual(data, [1, 2, 3, 4])
+    t.equal(write_called, 2)
+    cb()
+    t.end()
+  }, 200)
+})
+
+
+
+
+
+
 
