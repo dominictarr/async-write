@@ -42,12 +42,14 @@ tape('simple', function (t) {
   })
 
   t.equal(write_called, 1)
+  t.equal(w.writing, true)
   t.equal(cb_called, 3)
   t.equal(drain, 0)
 
   cb()
   t.equal(drain, 1)
   t.deepEqual(data, [1,2,3])
+  t.equal(w.writing, false)
   t.end()
 })
 
@@ -311,6 +313,7 @@ tape('write is faster than timeout', function (t) {
     t.end()
   }, 200)
 })
+
 
 
 
